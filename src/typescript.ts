@@ -1,87 +1,84 @@
-import type { CommonsRuleOptions, Configurator, OptionFiles, OptionIgnores, OptionOverridesFiles, OptionOverridesIgnores, OptionRules } from '@zokugun/eslint-toolkit';
+import { filterOutRules, type CommonsRuleOptions, type Configurator, type OptionFiles, type OptionIgnores, type OptionOverridesFiles, type OptionOverridesIgnores, type OptionRules } from '@zokugun/eslint-toolkit';
 import type { RuleOptions as TypeScriptRuleOptions } from './typegens/typescript.js';
 
-import {plugin} from 'typescript-eslint';
+import { plugin } from 'typescript-eslint';
 import parser, { type ParserOptions } from '@typescript-eslint/parser';
 import { rules } from './rules/typescript.js';
+import { AWARE_TYPE_RULES } from './utils/constants.js';
 
-export const GLOB_TS = '**/*.?([cm])ts';
-export const GLOB_TSX = '**/*.?([cm])tsx';
-export const GLOB_MARKDOWN = '**/*.md';
-
-export type OptionsParserOptions = {
-	parserOptions?: Partial<ParserOptions>;
-	filesTypeAware?: string[];
-	ignoresTypeAware?: string[];
+type OptionsEmbedded = {
+	files?: string[];
+	ignores?: string[];
+	rules?: Partial<CommonsRuleOptions | TypeScriptRuleOptions>
 };
 
-export type OptionsComponentExts = {
+type Options = OptionRules<CommonsRuleOptions | TypeScriptRuleOptions> & OptionFiles & OptionIgnores & OptionOverridesFiles & OptionOverridesIgnores & {
 	componentExts?: string[];
-};
-
-export type OptionsTsConfig = {
+	parserOptions?: Partial<ParserOptions>;
 	tsconfigPath?: string;
-	overridesTypeAware?: CommonsRuleOptions | TypeScriptRuleOptions;
+	embedded?: OptionsEmbedded & { overrides?: OptionsEmbedded };
 };
-
-type Options = OptionRules<CommonsRuleOptions | TypeScriptRuleOptions> & OptionFiles & OptionIgnores & OptionOverridesFiles & OptionOverridesIgnores & OptionsComponentExts & OptionsParserOptions & OptionsTsConfig;
 
 export function typescript(options: Options = {}): Configurator {
 	const {
 		componentExts = [],
 		parserOptions = {},
+		tsconfigPath = 'tsconfig.json',
 	} = options;
 
-	const files = options.overrides?.files ?? [
-		GLOB_TS,
-		...componentExts.map((ext) => `**/*.${ext}`),
-		...(options.files ?? []),
-	];
-	const ignores = options.overrides?.ignores ?? options.ignores ?? [];
-
-	const filesTypeAware = options.filesTypeAware ?? [GLOB_TS, GLOB_TSX];
-	const ignoresTypeAware = options.ignoresTypeAware ?? [`${GLOB_MARKDOWN}/**`];
-	const tsconfigPath = options.tsconfigPath ? options.tsconfigPath : 'tsconfig.json';
-
 	return (resolve, register) => {
-		register('javascript.sources', files);
-
 		const globals = resolve('javascript.globals.default');
 
+		const embeddedFiles = options.embedded?.overrides?.files ?? [
+			...resolve<string>('embedded.sources', []).map((value) => `${value}/*.ts`),
+			...(options.embedded?.files ?? []),
+		];
+		const embeddedIgnores = options.embedded?.overrides?.ignores ?? options.embedded?.ignores ?? [];
+		const embeddedRules = options.embedded?.overrides?.rules ?? {
+			...filterOutRules<CommonsRuleOptions | TypeScriptRuleOptions>(rules, AWARE_TYPE_RULES),
+			'no-console': [
+				'off',
+			],
+			'no-undef': [
+				'off',
+			],
+			'ts/no-invalid-void-type': [
+				'off',
+			],
+			'ts/member-ordering': [
+				'off',
+			],
+			'ts/no-unused-vars': [
+				'off',
+			],
+			...filterOutRules<CommonsRuleOptions | TypeScriptRuleOptions>(options.rules, AWARE_TYPE_RULES),
+			...options.embedded?.rules,
+		};
+
+		const files = options.overrides?.files ?? [
+			'**/*.?([cm])ts',
+			'**/*.?([cm])tsx',
+			...componentExts.map((ext) => `**/*.${ext}`),
+			...(options.files ?? []),
+		];
+		const ignores = options.overrides?.ignores ?? [
+			...embeddedFiles,
+			...(options.ignores ?? []),
+		];
+
+		register('javascript.sources', files);
+
 		return [
+			{
+				name: 'zokugun/typescript/plugin',
+				plugins: {
+					ts: plugin,
+				},
+			},
 			{
 				name: 'zokugun/typescript/rules',
 				files,
 				ignores,
-				plugins: {
-					ts: plugin,
-				},
-				rules: {
-					...rules,
-					...options.rules,
-				},
-			},
-			{
-				name: `zokugun/typescript/parser`,
-				files,
-				ignores,
-				languageOptions: {
-					globals,
-					parser,
-					parserOptions: {
-						extraFileExtensions: componentExts.map(ext => `.${ext}`),
-						sourceType: 'module',
-						...parserOptions,
-					},
-				},
-			},
-			{
-				name: `zokugun/typescript/type-aware-parser`,
-				files: filesTypeAware,
-				ignores: [
-					...ignoresTypeAware,
-					...ignores,
-				],
 				languageOptions: {
 					globals,
 					parser,
@@ -96,8 +93,13 @@ export function typescript(options: Options = {}): Configurator {
 						...parserOptions,
 					},
 				},
+				rules: {
+					...rules,
+					...options.rules,
+				},
 			},
 			{
+				name: 'zokugun/typescript/globals/cjs',
 				files: ['**/*.cts'],
 				ignores,
 				languageOptions: {
@@ -105,11 +107,27 @@ export function typescript(options: Options = {}): Configurator {
 				},
 			},
 			{
+				name: 'zokugun/typescript/globals/esm',
 				files: ['**/*.mts'],
 				ignores,
 				languageOptions: {
 					globals: resolve('javascript.globals.esm'),
 				},
+			},
+			{
+				name: 'zokugun/typescript/embedded',
+				files: embeddedFiles,
+				ignores: embeddedIgnores,
+				languageOptions: {
+					globals,
+					parser,
+					parserOptions: {
+						extraFileExtensions: componentExts.map(ext => `.${ext}`),
+						sourceType: 'module',
+						...parserOptions,
+					},
+				},
+				rules: embeddedRules,
 			},
 		];
 	};

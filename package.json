@@ -56,7 +56,7 @@
 	},
 	"dependencies": {
 		"@typescript-eslint/parser": "8.65.0",
-		"@zokugun/eslint-toolkit": "0.1.1",
+		"@zokugun/eslint-toolkit": "0.2.0",
 		"typescript-eslint": "8.66.0"
 	},
 	"devDependencies": {
