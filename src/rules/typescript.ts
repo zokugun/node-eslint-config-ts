@@ -1,8 +1,9 @@
-import type { RuleOptions as TypeScriptRuleOptions } from '../typegens/typescript.js';
+import type { CommonsRuleOptions } from '@zokugun/eslint-toolkit';
+import type { TypeScriptRuleOptions } from '../typegens/typescript.js';
 
-import { type CommonsRuleOptions, commonsRules } from '@zokugun/eslint-toolkit';
+import { commonsRules } from '@zokugun/eslint-toolkit';
 
-export const rules: Partial<TypeScriptRuleOptions | CommonsRuleOptions> = {
+export const typeScriptRules: Partial<TypeScriptRuleOptions | CommonsRuleOptions> = {
 	...commonsRules,
 	'ts/adjacent-overload-signatures': [
 		'error',

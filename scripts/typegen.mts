@@ -1,4 +1,10 @@
 import { buildTypeGen } from '@zokugun/eslint-typegen-plus';
 import typescript from 'typescript-eslint';
 
-await buildTypeGen('ts', typescript.plugin, 'typescript.d.ts', { overwrite: true });
+await buildTypeGen({
+	name: 'ts',
+	fileName: 'typescript.d.ts',
+	typeName: 'TypeScriptRuleOptions',
+	plugin: typescript.plugin,
+	overwrite: true,
+});

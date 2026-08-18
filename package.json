@@ -56,14 +56,14 @@
 	},
 	"dependencies": {
 		"@typescript-eslint/parser": "8.65.0",
-		"@zokugun/eslint-toolkit": "0.2.0",
+		"@zokugun/eslint-toolkit": "0.3.0",
 		"typescript-eslint": "8.66.0"
 	},
 	"devDependencies": {
 		"@commitlint/cli": "20.5.3",
 		"@commitlint/config-conventional": "20.5.3",
 		"@types/node": "24.13.2",
-		"@zokugun/eslint-typegen-plus": "0.1.0",
+		"@zokugun/eslint-typegen-plus": "0.3.0",
 		"@zokugun/tsc-leda": "0.6.0",
 		"eslint": "10.8.1",
 		"fixpack": "4.0.0",

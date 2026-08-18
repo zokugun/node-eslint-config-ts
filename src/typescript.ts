@@ -1,22 +1,19 @@
-import { filterOutRules, type CommonsRuleOptions, type Configurator, type OptionFiles, type OptionIgnores, type OptionOverridesFiles, type OptionOverridesIgnores, type OptionRules } from '@zokugun/eslint-toolkit';
-import type { RuleOptions as TypeScriptRuleOptions } from './typegens/typescript.js';
+import type { ParserOptions } from '@typescript-eslint/parser';
+import type { CommonsRuleOptions, Configurator, DefaultOptions } from '@zokugun/eslint-toolkit';
+import type { Linter } from 'eslint';
+import type { TypeScriptRuleOptions } from './typegens/typescript.js';
 
+import parser from '@typescript-eslint/parser';
+import { filterOutRules } from '@zokugun/eslint-toolkit';
 import { plugin } from 'typescript-eslint';
-import parser, { type ParserOptions } from '@typescript-eslint/parser';
-import { rules } from './rules/typescript.js';
+
+import { typeScriptRules } from './rules/typescript.js';
 import { AWARE_TYPE_RULES } from './utils/constants.js';
 
-type OptionsEmbedded = {
-	files?: string[];
-	ignores?: string[];
-	rules?: Partial<CommonsRuleOptions | TypeScriptRuleOptions>
-};
-
-type Options = OptionRules<CommonsRuleOptions | TypeScriptRuleOptions> & OptionFiles & OptionIgnores & OptionOverridesFiles & OptionOverridesIgnores & {
+type Options = DefaultOptions<CommonsRuleOptions | TypeScriptRuleOptions> & {
 	componentExts?: string[];
 	parserOptions?: Partial<ParserOptions>;
 	tsconfigPath?: string;
-	embedded?: OptionsEmbedded & { overrides?: OptionsEmbedded };
 };
 
 export function typescript(options: Options = {}): Configurator {
@@ -27,33 +24,7 @@ export function typescript(options: Options = {}): Configurator {
 	} = options;
 
 	return (resolve, register) => {
-		const globals = resolve('javascript.globals.default');
-
-		const embeddedFiles = options.embedded?.overrides?.files ?? [
-			...resolve<string>('embedded.sources', []).map((value) => `${value}/*.ts`),
-			...(options.embedded?.files ?? []),
-		];
-		const embeddedIgnores = options.embedded?.overrides?.ignores ?? options.embedded?.ignores ?? [];
-		const embeddedRules = options.embedded?.overrides?.rules ?? {
-			...filterOutRules<CommonsRuleOptions | TypeScriptRuleOptions>(rules, AWARE_TYPE_RULES),
-			'no-console': [
-				'off',
-			],
-			'no-undef': [
-				'off',
-			],
-			'ts/no-invalid-void-type': [
-				'off',
-			],
-			'ts/member-ordering': [
-				'off',
-			],
-			'ts/no-unused-vars': [
-				'off',
-			],
-			...filterOutRules<CommonsRuleOptions | TypeScriptRuleOptions>(options.rules, AWARE_TYPE_RULES),
-			...options.embedded?.rules,
-		};
+		const globals = resolve('javascript/globals/default');
 
 		const files = options.overrides?.files ?? [
 			'**/*.?([cm])ts',
@@ -61,14 +32,20 @@ export function typescript(options: Options = {}): Configurator {
 			...componentExts.map((ext) => `**/*.${ext}`),
 			...(options.files ?? []),
 		];
+
+		const embeddedFiles = options.embedded?.overrides?.files ?? [
+			...resolve<string>('embedded/sources', []).map((value) => `${value}/*.ts`),
+			...(options.embedded?.files ?? []),
+		];
+
 		const ignores = options.overrides?.ignores ?? [
 			...embeddedFiles,
 			...(options.ignores ?? []),
 		];
 
-		register('javascript.sources', files);
+		register('javascript/sources', files);
 
-		return [
+		const configs: Linter.Config[] = [
 			{
 				name: 'zokugun/typescript/plugin',
 				plugins: {
@@ -76,6 +53,30 @@ export function typescript(options: Options = {}): Configurator {
 				},
 			},
 			{
+				name: 'zokugun/typescript/globals/cjs',
+				files: ['**/*.cts'],
+				ignores,
+				languageOptions: {
+					globals: resolve('javascript/globals/cjs'),
+				},
+			},
+			{
+				name: 'zokugun/typescript/globals/esm',
+				files: ['**/*.mts'],
+				ignores,
+				languageOptions: {
+					globals: resolve('javascript/globals/esm'),
+				},
+			},
+		];
+
+		if(files.length > 0) {
+			const rules = options.overrides?.rules ?? {
+				...typeScriptRules,
+				...options.rules,
+			};
+
+			configs.push({
 				name: 'zokugun/typescript/rules',
 				files,
 				ignores,
@@ -93,31 +94,37 @@ export function typescript(options: Options = {}): Configurator {
 						...parserOptions,
 					},
 				},
-				rules: {
-					...rules,
-					...options.rules,
-				},
-			},
-			{
-				name: 'zokugun/typescript/globals/cjs',
-				files: ['**/*.cts'],
-				ignores,
-				languageOptions: {
-					globals: resolve('javascript.globals.cjs'),
-				},
-			},
-			{
-				name: 'zokugun/typescript/globals/esm',
-				files: ['**/*.mts'],
-				ignores,
-				languageOptions: {
-					globals: resolve('javascript.globals.esm'),
-				},
-			},
-			{
+				rules,
+			});
+		}
+
+		if(embeddedFiles.length > 0) {
+			const ignores = options.embedded?.overrides?.ignores ?? options.embedded?.ignores ?? [];
+			const rules = options.embedded?.overrides?.rules ?? {
+				...filterOutRules<CommonsRuleOptions | TypeScriptRuleOptions>(typeScriptRules, AWARE_TYPE_RULES),
+				'no-console': [
+					'off',
+				],
+				'no-undef': [
+					'off',
+				],
+				'ts/no-invalid-void-type': [
+					'off',
+				],
+				'ts/member-ordering': [
+					'off',
+				],
+				'ts/no-unused-vars': [
+					'off',
+				],
+				...filterOutRules<CommonsRuleOptions | TypeScriptRuleOptions>(options.rules, AWARE_TYPE_RULES),
+				...options.embedded?.rules,
+			};
+
+			configs.push({
 				name: 'zokugun/typescript/embedded',
 				files: embeddedFiles,
-				ignores: embeddedIgnores,
+				ignores,
 				languageOptions: {
 					globals,
 					parser,
@@ -127,8 +134,10 @@ export function typescript(options: Options = {}): Configurator {
 						...parserOptions,
 					},
 				},
-				rules: embeddedRules,
-			},
-		];
+				rules,
+			});
+		}
+
+		return configs;
 	};
 }
