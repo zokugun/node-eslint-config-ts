@@ -225,6 +225,12 @@ export const typeScriptRules: Partial<TypeScriptRuleOptions | CommonsRuleOptions
 	'ts/no-duplicate-enum-values': [
 		'error',
 	],
+	'no-duplicate-imports': [
+		'error',
+		{
+			allowSeparateTypeImports: true,
+		},
+	],
 	'ts/no-duplicate-type-constituents': [
 		'error',
 	],
