@@ -1,5 +1,8 @@
 # Changelog
 
+## v0.3.2 | 2026-08-23
+- allow duplicate imports for separated types
+
 ## v0.3.1 | 2026-08-23
 - disable `ts/no-unsafe-type-assertion`
 - remove `CommonJS` module
