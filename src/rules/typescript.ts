@@ -390,7 +390,7 @@ export const typeScriptRules: Partial<TypeScriptRuleOptions | CommonsRuleOptions
 		'error',
 	],
 	'ts/no-unsafe-type-assertion': [
-		'error',
+		'off',
 	],
 	'ts/no-unsafe-unary-minus': [
 		'error',
